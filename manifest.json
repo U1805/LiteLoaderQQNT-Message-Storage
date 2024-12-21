@@ -1,0 +1,19 @@
+{
+    "manifest_version": 4,
+    "type": "extension",
+    "name": "消息存储",
+    "slug": "message-storage", 
+    "description": "本地数据库保存 QQ 消息",
+    "version": "0.0.1",
+    "icon": "./icon.png",
+    "authors": [
+        {
+            "name": "dai0v0",
+            "link": "https://github.com/u1805"
+        }
+    ],
+    "platform": ["win32", "linux"],
+    "injects": {
+        "main": "./main.js"
+    }
+}
