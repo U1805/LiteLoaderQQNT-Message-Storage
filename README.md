@@ -17,14 +17,15 @@ CREATE TABLE IF NOT EXISTS info (
     peerUin TEXT,            -- Group ID / Receiver's QQ
     peerName TEXT,           -- Group Name / Receiver's Nickname
     msgTime INTEGER,         -- Message Timestamp in seconds
-    chatType INTEGER         -- 1: Private, 2: Group
+    chatType INTEGER，       -- 1: Private, 2: Group
+    msgRandom INTEGER        -- An anchor for reply message
 );
 
 -- A Message contains multiple elements like text, image, emoji, reply, forward...
 CREATE TABLE IF NOT EXISTS content (
     id TEXT ,                -- Message ID
     elementId TEXT,          -- Element ID
-    elementType INTEGER,     -- Element Type: 1: Text, 2: Image, 6: Emoji, 7: Reply, 16: Forward
+    elementType INTEGER,     -- Element Type: 1: Text, 2&11: Image, 6: Emoji, 7: Reply, 16: Forward
     content BLOB,            -- Use BLOB to store any type of content, especially for images
     PRIMARY KEY (id, elementId)
 );
@@ -40,8 +41,8 @@ SELECT
     elementType, content
 from info JOIN content 
 WHERE info.id = content.id 
--- AND content LIKE %search_keyword%"
-AND content.elementType IN (1, 2, 6, 7, 16)
+-- AND content LIKE '%search_keyword%'
+AND content.elementType IN (1, 2, 6, 7, 11, 16)
 ORDER BY msgTime DESC;
 ```
 

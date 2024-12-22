@@ -56,7 +56,8 @@ async function openOrCreateDatabase(retryCount = 0) {
                 peerUin TEXT,            -- 群号/接受者QQ
                 peerName TEXT,           -- 群名/接受者昵称
                 msgTime INTEGER,         -- 发送时间戳s
-                chatType INTEGER         -- 1 好友 2 群聊
+                chatType INTEGER,        -- 1 好友 2 群聊
+                msgRandom INTEGER
             );
             `);
             db.run(`
@@ -133,16 +134,17 @@ var msgFlow = [];
 
 async function insertDb(msg) {
     let elementList = [];
-    for (const element of msg["elements"]) {
+    for (const element of msg.elements) {
         let content = null;
-        if (element["elementType"] === 1) content = element["textElement"]["content"];
-        else if (element["elementType"] === 2) content = await fs.promises.readFile(element["picElement"]["sourcePath"]);
-        else if (element["elementType"] === 6) content = element["faceElement"]["faceIndex"];
-        else if (element["elementType"] === 7) content = element["replyElement"]["sourceMsgIdInRecords"];
-        else if (element["elementType"] === 16) content = element["multiForwardMsgElement"]["xmlContent"];
+        if (element.elementType === 1) content = element.textElement.content;
+        else if (element.elementType === 2) content = await fs.promises.readFile(element.picElement.sourcePath);
+        else if (element.elementType === 6) content = element.faceElement.faceIndex;
+        else if (element.elementType === 7) content = JSON.stringify(msg.records.find((record) => element.replyElement.sourceMsgIdInRecords === record.msgId), null, 2);
+        else if (element.elementType === 11) content = await fs.promises.readFile(element.marketFaceElement.staticFacePath);
+        else if (element.elementType === 16) content = element.multiForwardMsgElement.xmlContent;
         else content = JSON.stringify(msg, null, 2);
 
-        elementList.push([msg["msgId"], element["elementId"], element["elementType"], content]);
+        elementList.push([msg.msgId, element.elementId, element.elementType, content]);
     }
 
     if (db != null) {
@@ -157,17 +159,19 @@ async function insertDb(msg) {
                     peerUin,
                     peerName,
                     msgTime,
-                    chatType
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+                    chatType,
+                    msgRandom
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
                 [
-                    msg["msgId"],
-                    msg["senderUin"],
-                    msg["sendNickName"],
-                    msg["sendMemberName"],
-                    msg["peerUin"],
-                    msg["peerName"],
-                    parseInt(msg["msgTime"]),
-                    msg["chatType"],
+                    msg.msgId,
+                    msg.senderUin,
+                    msg.sendNickName,
+                    msg.sendMemberName,
+                    msg.peerUin,
+                    msg.peerName,
+                    parseInt(msg.msgTime),
+                    msg.chatType,
+                    msg.msgRandom
                 ],
                 (insertErr) => {
                     if (insertErr) {
