@@ -50,3 +50,7 @@ ORDER BY msgTime DESC;
 > ```bash
 > sqlite3 ".\qq-storage.sqlite" "select writefile('image.png', content) from content where elementId='7450882919979556275'"
 >```
+
+## Query Interface
+
+To make data queries more convenient, we provide a query page ⇒ [here](https://u1805.github.io/LiteLoaderQQNT-Message-Storage/).

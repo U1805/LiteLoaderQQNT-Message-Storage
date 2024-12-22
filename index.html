@@ -1,0 +1,782 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>消息查询界面</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@coreui/coreui-pro@5.8.0/dist/js/coreui.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/dayjs.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dayjs@1/plugin/customParseFormat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet" />
+    <link href="https://cdn.jsdelivr.net/npm/@coreui/coreui-pro@5.8.0/dist/css/coreui.min.css" rel="stylesheet" />
+    <style>
+      body {
+        background-color: #f8f9fa;
+      }
+      hr {
+        margin: 0.5rem 0 !important;
+      }
+      .container {
+        max-width: 1200px;
+        margin: 0 auto;
+      }
+      /* Card styles */
+      .card {
+        background: #fff;
+        border-radius: 8px;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+      }
+
+      .card-header {
+        padding: 0.75rem 1rem;
+        background: #f8f9fa;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .card-header h5 {
+        color: #333;
+        font-size: 1rem;
+        margin: 0;
+      }
+
+      /* Chat message styles */
+      .chat-message {
+        display: flex;
+        padding: 0.75rem 1rem;
+        gap: 1rem;
+        align-items: flex-start;
+        border-bottom: 1px solid #e9ecef;
+      }
+
+      .chat-message:last-child {
+        border-bottom: none;
+      }
+
+      .chat-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        overflow: hidden;
+        background-color: #e9ecef;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        color: #666;
+      }
+
+      .chat-content {
+        flex: 1;
+      }
+
+      .chat-header {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+        flex-wrap: wrap;
+      }
+
+      .chat-username {
+        font-weight: 500;
+        color: #a1a1a1;
+      }
+
+      .chat-badge {
+        background: #e6f3ff;
+        color: #0066cc;
+        padding: 0.125rem 0.375rem;
+        border-radius: 4px;
+        font-size: 0.875rem;
+      }
+
+      .chat-time {
+        color: #999;
+        font-size: 0.875rem;
+        margin-left: auto;
+      }
+
+      .chat-text {
+        color: #333;
+        line-height: 1.5;
+        margin: 0;
+        white-space: pre-wrap;
+      }
+
+      .message-content {
+        max-width: none;
+      }
+
+      .message-image {
+        max-width: 300px;
+        max-height: 300px;
+        border-radius: 8px;
+        margin: 0.5rem 0;
+      }
+      .message-image:hover {
+        opacity: 0.9;
+      }
+      /* Modal styles for image preview */
+      .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+      }
+      img.modal-content {
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        margin: auto;
+        display: block;
+        max-width: 90%;
+        max-height: 90%;
+        background-color: rgba(0, 0, 0, 0.9);
+      }
+      .modal-close {
+        position: absolute;
+        right: 20px;
+        top: 20px;
+        color: #fff;
+        font-size: 30px;
+        cursor: pointer;
+      }
+
+      .ark_title {
+        color: #b2b2b2;
+      }
+      .ark_desc {
+        width: 300px; /* Or any fixed width */
+        white-space: nowrap; /* Prevents text from wrapping */
+        overflow: hidden; /* Hides overflowing text */
+        text-overflow: ellipsis; /* Adds ellipsis (...) at the end */
+        margin-bottom: 0 !important;
+      }
+      .ark_preview {
+        margin: 0 !important;
+      }
+      .emoji_image {
+        width: 1.5rem;
+        margin: 0 0.1rem;
+      }
+      .file_name {
+        width: 180px; /* Or any fixed width */
+        white-space: nowrap; /* Prevents text from wrapping */
+        overflow: hidden; /* Hides overflowing text */
+        text-overflow: ellipsis; /* Adds ellipsis (...) at the end */
+        margin-bottom: 0 !important;
+      }
+      .file_size {
+        color: #b2b2b2;
+        font-size: 0.9rem;
+        margin-bottom: 0 !important;
+      }
+      .file_icon {
+        width: 50px;
+        height: 50px;
+        background-color: #575757;
+      }
+      .file {
+        display: flex;
+        max-width: 250px;
+      }
+      .reforward_title {
+        width: 250px; /* Or any fixed width */
+        white-space: nowrap; /* Prevents text from wrapping */
+        overflow: hidden; /* Hides overflowing text */
+        text-overflow: ellipsis; /* Adds ellipsis (...) at the end */
+        font-size: 1rem;
+      }
+      .reforward_content {
+        width: 250px; /* Or any fixed width */
+        white-space: nowrap; /* Prevents text from wrapping */
+        overflow: hidden; /* Hides overflowing text */
+        text-overflow: ellipsis; /* Adds ellipsis (...) at the end */
+        font-size: 0.9rem;
+        margin-bottom: 0 !important;
+        color: #b2b2b2;
+      }
+      .reply_name {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.5rem;
+        margin-bottom: 0.25rem;
+        flex-wrap: wrap;
+      }
+      .reply_box {
+        border-left: 2px #b2b2b2 solid;
+        padding-left: 0.5rem;
+        font-size: 0.85rem;
+        color: #a1a1a1;
+      }
+
+      @media (max-width: 768px) {
+        .card-body {
+          padding: 0;
+        }
+
+        .chat-message {
+          padding: 0.5rem;
+        }
+      }
+    </style>
+  </head>
+  <body class="py-4">
+    <div class="container">
+      <h1 class="text-center mb-4">消息查询</h1>
+
+      <!-- Database Selection Card -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">数据库选择</h5>
+        </div>
+        <div class="card-body">
+          <label for="dbFile" class="form-label">选择数据库文件</label>
+          <input type="file" class="form-control" id="dbFile" accept=".db,.sqlite,.sqlite3" />
+        </div>
+      </div>
+
+      <!-- Search Form Card -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">搜索条件</h5>
+        </div>
+        <div class="card-body">
+          <form id="searchForm">
+            <div class="row g-3">
+              <div class="col-md-6">
+                <label class="form-label">聊天类型</label>
+                <div class="d-flex gap-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="chatType" value="2" id="groupChat" checked required />
+                    <label class="form-check-label" for="groupChat">群聊</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="chatType" value="1" id="privateChat" />
+                    <label class="form-check-label" for="privateChat">私聊</label>
+                  </div>
+                </div>
+              </div>
+              <div class="col-md-6">
+                <label class="form-label">排序</label>
+                <div class="d-flex gap-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="sortType" value="1" id="descSort" checked required />
+                    <label class="form-check-label" for="descSort">按最新排序</label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" name="sortType" value="2" id="ascSort" />
+                    <label class="form-check-label" for="ascSort">按时间排序</label>
+                  </div>
+                </div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label" id="peerUinLabel">群号</label>
+                <input type="text" class="form-control" id="peerUin" required />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">发送人QQ号</label>
+                <input type="text" class="form-control" id="senderUin" />
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">发送时间</label>
+                <div id="TimeRange" data-coreui-footer="true" data-coreui-locale="en-US" data-coreui-toggle="date-range-picker"></div>
+              </div>
+
+              <div class="col-md-6">
+                <label class="form-label">关键词</label>
+                <input type="text" class="form-control" id="content" />
+              </div>
+
+              <div class="col-12">
+                <button type="submit" class="btn btn-primary w-100">搜索</button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
+      <!-- Results Card -->
+      <div id="results" class="card hidden">
+        <div class="card-header">
+          <h5 class="mb-0">查询结果</h5>
+        </div>
+        <div class="card-body p-0" id="resultsBody" style="background-color: #f2f2f2">
+          <!-- Chat messages will be inserted here -->
+        </div>
+      </div>
+    </div>
+
+    <!-- Image Preview Modal -->
+    <div id="imageModal" class="modal">
+      <span class="modal-close">&times;</span>
+      <img class="modal-content" id="modalImage" />
+    </div>
+
+    <script>
+      let db = null;
+      let SQL = null;
+
+      // Initialize SQL.js
+      initSqlJs({
+        locateFile: (filename) => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${filename}`,
+      }).then(function (sql) {
+        SQL = sql;
+      });
+
+      // Handle database file selection
+      document.getElementById("dbFile").addEventListener("change", function (e) {
+        const file = e.target.files[0];
+        const reader = new FileReader();
+        reader.onload = function () {
+          const Uints = new Uint8Array(reader.result);
+          db = new SQL.Database(Uints);
+          alert("数据库加载成功！");
+        };
+        reader.readAsArrayBuffer(file);
+      });
+
+      // Update form labels based on chat type
+      document.querySelectorAll('input[name="chatType"]').forEach((radio) => {
+        radio.addEventListener("change", function () {
+          const label = document.getElementById("peerUinLabel");
+          label.textContent = this.value === "1" ? "接收人QQ号" : "群号";
+        });
+      });
+
+      // date picker format
+      const TimeRange = document.getElementById("TimeRange");
+      if (TimeRange) {
+        dayjs.extend(window.dayjs_plugin_customParseFormat);
+        const TimeRangeCustomFormats = {
+          locale: "en-US",
+          // startDate: new Date(2022, 8, 3),
+          // endDate: new Date(2022, 8, 17),
+          inputDateFormat: (date) => dayjs(date).locale("en").format("YYYY/MM/DD"),
+          inputDateParse: (date) => dayjs(date, "YYYY/MM/DD", "en").toDate(),
+        };
+
+        new coreui.DateRangePicker(TimeRange, TimeRangeCustomFormats);
+      }
+
+      // reforward message is XML format
+      function parseXML(xmlString) {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(xmlString, "text/xml");
+
+        // Check for parsing errors
+        if (xmlDoc.getElementsByTagName("parsererror").length > 0) {
+          console.error("XML parsing error:", xmlDoc.documentElement.textContent);
+          return null; // Or throw an error
+        }
+
+        return xmlDoc;
+      }
+
+      // Handle form submission
+      document.getElementById("searchForm").addEventListener("submit", function (e) {
+        e.preventDefault();
+        if (!db) {
+          alert("请先选择数据库文件！");
+          return;
+        }
+
+        const chatType = document.querySelector('input[name="chatType"]:checked').value;
+        const sortType = document.querySelector('input[name="sortType"]:checked').value;
+        const peerUin = document.getElementById("peerUin").value;
+        const senderUin = document.getElementById("senderUin").value;
+        const startTime = document.querySelector("#TimeRange > div.date-picker-input-group > input:nth-child(1)").value;
+        const endTime = document.querySelector("#TimeRange > div.date-picker-input-group > input:nth-child(3)").value;
+        const content = document.getElementById("content").value;
+
+        // Modified query to get all content elements for each message
+        let query = `
+            FROM info 
+            JOIN content ON info.id = content.id
+            WHERE info.chatType = ?
+            AND info.peerUin = ?
+        `;
+        let params = [chatType, peerUin];
+
+        if (senderUin) {
+          query += " AND info.senderUin = ?";
+          params.push(senderUin);
+        }
+
+        if (startTime) {
+          const startTimestamp = Math.floor(new Date(startTime).getTime() / 1000);
+          query += " AND info.msgTime >= ?";
+          params.push(startTimestamp);
+        }
+
+        if (endTime) {
+          const endTimestamp = Math.floor(new Date(endTime).getTime() / 1000 + 86400);
+          query += " AND info.msgTime <= ?";
+          params.push(endTimestamp);
+        }
+
+        if (content) {
+          query += ` AND EXISTS (
+                SELECT 1 FROM content c2 
+                WHERE c2.id = info.id 
+                AND c2.elementType = 1 
+                AND hex(c2.content) LIKE '%' || hex(?) || '%'
+            )`;
+          params.push(content);
+        }
+
+        try {
+          trial_query = `SELECT COUNT(*)` + query;
+          results = db.exec(trial_query, params);
+        } catch (error) {
+          alert("查询出错：" + error.message);
+          console.error(error);
+        }
+
+        if (results[0].values[0][0] >= 5000) {
+          alert("查询结果超过5000条，请调整查询条件！");
+          return;
+        }
+
+        query =
+          `
+            SELECT 
+                info.id,
+                info.msgTime, 
+                info.sendNickName, 
+                info.sendMemberName,
+                GROUP_CONCAT(content.elementType) as elementTypes,
+                GROUP_CONCAT(hex(content.content)) as contents,
+                GROUP_CONCAT(content.elementId) as elementIds,
+                info.msgRandom
+        ` +
+          query +
+          ` 
+            GROUP BY info.id
+            ${sortType === "1" ? "ORDER BY info.msgTime DESC" : "ORDER BY info.msgTime ASC"}
+        `;
+
+        try {
+          const results = db.exec(query, params);
+          displayResults(results[0]?.values || []);
+        } catch (error) {
+          alert("查询出错：" + error.message);
+          console.error(error);
+        }
+      });
+
+      // Convert hex string to Uint8Array
+      function hexToBytes(hex) {
+        const bytes = new Uint8Array(hex.length / 2);
+        for (let i = 0; i < hex.length; i += 2) {
+          bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+        }
+        return bytes;
+      }
+
+      // Remove bracket content before name
+      function removeBracketContent(str) {
+        const regex = /^(([\[\]「」()（）{}『』【】])(.+?)([\[\]「」()（）{}『』【】]))+/;
+        return str.replace(regex, "");
+      }
+
+      // Display results in table
+      function displayResults(results) {
+        const resultsBody = document.getElementById("resultsBody");
+        resultsBody.innerHTML = "";
+
+        results.forEach((row) => {
+          const chatMessage = document.createElement("div");
+          chatMessage.className = "chat-message";
+
+          // Avatar
+          const avatar = document.createElement("div");
+          avatar.className = "chat-avatar";
+          avatar.textContent = removeBracketContent(row[3] || row[2])[0]; // First character of the name
+
+          // Chat content container
+          const chatContent = document.createElement("div");
+          chatContent.className = "chat-content";
+
+          // Header with username, badge, and time
+          const header = document.createElement("div");
+          header.className = "chat-header";
+
+          const username = document.createElement("span");
+          username.className = "chat-username";
+          username.textContent = row[3] || row[2];
+
+          const time = document.createElement("span");
+          time.className = "chat-time";
+          time.textContent = new Date(row[1] * 1000).toLocaleString();
+
+          header.appendChild(username);
+          header.appendChild(time);
+
+          // Message content
+          const contentContainer = document.createElement("div");
+          contentContainer.className = "chat-text";
+
+          // Process multiple elements
+          const elementTypes = row[4].split(",").map(Number);
+          const contents = row[5].split(",");
+          const elementIds = row[6].split(",");
+
+          // Sort elements by elementId
+          const elements = elementTypes
+            .map((type, index) => ({
+              type,
+              content: contents[index],
+              id: elementIds[index],
+            }))
+            .sort((a, b) => a.id.localeCompare(b.id));
+
+          elements.forEach((element) => {
+            try {
+              if (element.type === 1) {
+                // Text message
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const textDiv = document.createElement("span");
+                textDiv.className = "mb-2";
+                textDiv.textContent = text;
+                contentContainer.appendChild(textDiv);
+              } else if (element.type === 2) {
+                // Image
+                const img = document.createElement("img");
+                img.className = "message-image";
+                const blob = new Blob([hexToBytes(element.content)], { type: "image/jpeg" });
+                img.src = URL.createObjectURL(blob);
+                img.onclick = () => showImageModal(img.src);
+                contentContainer.appendChild(img);
+              } else if (element.type === 3) {
+                // File
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const meta = JSON.parse(text).elements[0].fileElement;
+
+                const fileDiv = document.createElement("sapn");
+                fileDiv.className = "mb-2 file";
+                const nameDiv = document.createElement("sapn");
+                nameDiv.className = "file_name";
+                nameDiv.textContent = meta.fileName;
+                fileDiv.appendChild(nameDiv);
+                const iconDiv = document.createElement("sapn");
+                iconDiv.className = "file_icon";
+                fileDiv.appendChild(iconDiv);
+                contentContainer.appendChild(fileDiv);
+
+                let size = meta.fileSize;
+                let count = 0;
+                let unit = ["B", "KB", "MB", "GB"];
+                while (size >= 1024) {
+                  size = size / 1024;
+                  count++;
+                }
+                size = size.toFixed(1) + " " + unit[count];
+                const sizeDiv = document.createElement("p");
+                sizeDiv.className = "mb-2 file_size";
+                sizeDiv.textContent = size;
+                contentContainer.appendChild(sizeDiv);
+              } else if (element.type === 6) {
+                // emoji
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const img = document.createElement("img");
+                img.className = "emoji_image";
+                img.src = `https://koishi.js.org/QFace/assets/qq_emoji/resfile/emoji/${text}/apng/${text}.png`;
+                contentContainer.appendChild(img);
+              } else if (element.type === 7) {
+                // Reply
+                const msg = JSON.parse(new TextDecoder("utf-8").decode(hexToBytes(element.content)));
+                const msgDiv = document.createElement("div");
+                msgDiv.className = "mb-2 reply_box";
+
+                const header = document.createElement("p");
+                header.className = "reply_name";
+                const username = document.createElement("span");
+                username.textContent = msg.sendMemberName || msg.sendNickName;
+                header.appendChild(username);
+                const upIcon = document.createElement("span");
+                upIcon.textContent = "⭱";
+                header.appendChild(upIcon);
+                msgDiv.appendChild(header);
+
+                msg.elements.forEach((el) => {
+                  console.log(el);
+                  if (el.elementType === 1) {
+                    const div = document.createElement("span");
+                    div.className = "mb-2";
+                    div.textContent = el.textElement.content;
+                    msgDiv.appendChild(div);
+                  } else if (el.elementType === 6) {
+                    const img = document.createElement("img");
+                    img.className = "emoji_image";
+                    img.src = `https://koishi.js.org/QFace/assets/qq_emoji/resfile/emoji/${el.faceElement.faceIndex}/apng/${el.faceElement.faceIndex}.png`;
+                    msgDiv.appendChild(img);
+                  } else {
+                    const div = document.createElement("span");
+                    div.className = "mb-2";
+                    div.msgContent = getElementTypeName(el.elementType);
+                    msgDiv.appendChild(div);
+                  }
+                });
+
+                msgDiv.addEventListener("click", (event) => {
+                  event.preventDefault();
+                  location.hash = `#${msg.msgRandom}`;
+                  window.history.pushState("", "", window.location.href.split("#")[0]);
+                });
+                contentContainer.appendChild(msgDiv);
+              } else if (element.type === 8) {
+                // System
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const meta = JSON.parse(text).elements[0].grayTipElement;
+                if (meta.subElementType == 17) {
+                  // 戳一戳
+                  const textDiv = document.createElement("p");
+                  textDiv.className = "mb-2 file_size";
+                  textDiv.textContent = "戳一戳";
+                  contentContainer.appendChild(textDiv);
+                } else if (meta.subElementType == 1) {
+                  //撤回
+                  const name = meta.revokeElement.origMsgSenderMemRemark || meta.revokeElement.origMsgSenderNick;
+                  const textDiv = document.createElement("p");
+                  textDiv.className = "mb-2 file_size";
+                  textDiv.textContent = name + "撤回了一条消息";
+                  contentContainer.appendChild(textDiv);
+                }
+              } else if (element.type === 10) {
+                // 小程序
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const meta = JSON.parse(JSON.parse(text).elements[0].arkElement.bytesData).meta.detail_1;
+                const titleDiv = document.createElement("p");
+                titleDiv.className = "mb-2 ark_title";
+                titleDiv.textContent = "[QQ小程序] " + meta.title;
+                contentContainer.appendChild(titleDiv);
+                const descDiv = document.createElement("p");
+                descDiv.className = "mb-2 ark_desc";
+                descDiv.textContent = meta.desc;
+                contentContainer.appendChild(descDiv);
+                const previewDiv = document.createElement("img");
+                previewDiv.className = "message-image ark_preview";
+                previewDiv.src = "https://" + meta.preview;
+                contentContainer.appendChild(previewDiv);
+              } else if (element.type === 11) {
+                // marketFace
+                const img = document.createElement("img");
+                img.className = "message-image";
+                const blob = new Blob([hexToBytes(element.content)], { type: "image/jpeg" });
+                img.src = URL.createObjectURL(blob);
+                img.onclick = () => showImageModal(img.src);
+                contentContainer.appendChild(img);
+              } else if (element.type === 16) {
+                // reforward
+                const text = new TextDecoder("utf-8").decode(hexToBytes(element.content));
+                const xml = parseXML(text);
+
+                const titleDiv = document.createElement("p");
+                titleDiv.className = "mb-2 reforward_title";
+                titleDiv.textContent = xml.querySelector("msg > item > title").textContent;
+                contentContainer.appendChild(titleDiv);
+
+                for (let i = 1; i < xml.querySelectorAll("msg > item > title").length; i++) {
+                  const textDiv = document.createElement("p");
+                  textDiv.className = "mb-2 reforward_content";
+                  textDiv.textContent = xml.querySelectorAll("msg > item > title")[i].textContent;
+                  contentContainer.appendChild(textDiv);
+                }
+                contentContainer.appendChild(document.createElement("hr"));
+
+                const summaryDiv = document.createElement("p");
+                summaryDiv.className = "mb-2 reforward_content";
+                summaryDiv.textContent = xml.querySelector("msg > item > summary").textContent;
+                contentContainer.appendChild(summaryDiv);
+              } else {
+                const elementDiv = document.createElement("span");
+                elementDiv.className = "mb-2";
+                elementDiv.textContent = `[${getElementTypeName(element.type)}]`;
+                contentContainer.appendChild(elementDiv);
+              }
+              if (getElementTypeName(element.type) == "图片")
+                // 所有图片换行显示
+                contentContainer.appendChild(document.createElement("br"));
+            } catch (error) {
+              console.error("Content processing error:", error);
+              const errorDiv = document.createElement("p");
+              errorDiv.className = "mb-2 text-danger";
+              errorDiv.textContent = "[内容解析错误]";
+              contentContainer.appendChild(errorDiv);
+            }
+          });
+
+          if (contentContainer.children.length === 2 && contentContainer.firstChild.className === "message-image") {
+            contentContainer.lastChild.remove();
+          } else {
+            contentContainer.style = `
+            background: #fff;
+            width: fit-content;
+            padding: 9px 13px;
+            border-radius: 10px;
+            `;
+          }
+          chatContent.appendChild(header);
+          chatContent.appendChild(contentContainer);
+
+          chatMessage.appendChild(avatar);
+          chatMessage.appendChild(chatContent);
+          chatMessage.id = row[7];
+
+          resultsBody.appendChild(chatMessage);
+        });
+
+        document.getElementById("results").classList.remove("hidden");
+      }
+
+      // Helper function to get element type name
+      function getElementTypeName(type) {
+        const types = {
+          1: "文本",
+          2: "图片",
+          3: "文件",
+          4: "语音",
+          5: "视频",
+          6: "表情",
+          7: "回复",
+          8: "系统",
+          10: "小程序",
+          11: "图片", // marketFace
+          16: "转发",
+        };
+        return types[type] || "未知类型";
+      }
+
+      // Image Modal Functions
+      const modal = document.getElementById("imageModal");
+      const modalImg = document.getElementById("modalImage");
+      const closeBtn = document.getElementsByClassName("modal-close")[0];
+
+      function showImageModal(src) {
+        modal.style.display = "flex";
+        modalImg.src = src;
+      }
+
+      closeBtn.onclick = function () {
+        modal.style.display = "none";
+      };
+
+      window.onclick = function (event) {
+        if (event.target == modal) {
+          modal.style.display = "none";
+        }
+      };
+    </script>
+  </body>
+</html>
