@@ -114,6 +114,7 @@
         max-height: 300px;
         border-radius: 8px;
         margin: 0.5rem 0;
+        display: block;
       }
       .message-image:hover {
         opacity: 0.9;
@@ -667,7 +668,7 @@
                 contentContainer.appendChild(descDiv);
                 const previewDiv = document.createElement("img");
                 previewDiv.className = "message-image ark_preview";
-                previewDiv.src = "https://" + meta.preview;
+                previewDiv.src = "https://img.vxs.nl/?url=" + meta.preview;
                 contentContainer.appendChild(previewDiv);
               } else if (element.type === 11) {
                 // marketFace
@@ -705,9 +706,6 @@
                 elementDiv.textContent = `[${getElementTypeName(element.type)}]`;
                 contentContainer.appendChild(elementDiv);
               }
-              if (getElementTypeName(element.type) == "图片")
-                // 所有图片换行显示
-                contentContainer.appendChild(document.createElement("br"));
             } catch (error) {
               console.error("Content processing error:", error);
               const errorDiv = document.createElement("p");
@@ -717,9 +715,7 @@
             }
           });
 
-          if (contentContainer.children.length === 2 && contentContainer.firstChild.className === "message-image") {
-            contentContainer.lastChild.remove();
-          } else {
+          if (!(contentContainer.children.length === 1 && contentContainer.firstChild.className === "message-image")) {
             contentContainer.style = `
             background: #fff;
             width: fit-content;
