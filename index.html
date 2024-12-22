@@ -64,7 +64,7 @@
         align-items: center;
         justify-content: center;
         font-weight: bold;
-        color: #666;
+        color: #f9f9f9c7;
       }
 
       .chat-content {
@@ -280,13 +280,17 @@
               </div>
 
               <div class="col-md-6">
-                <label class="form-label" id="peerUinLabel">群号</label>
-                <input type="text" class="form-control" id="peerUin" required />
+                <label class="form-label" id="peerUinLabel">群ID</label>
+                <select class="form-select" id="peerUin">
+                  <option value="" disabled selected>Open this select menu</option>
+                </select>
               </div>
 
               <div class="col-md-6">
-                <label class="form-label">发送人QQ号</label>
-                <input type="text" class="form-control" id="senderUin" />
+                <label class="form-label">发送人</label>
+                <select class="form-select" id="senderUin">
+                  <option value="" disabled selected>Open this select menu</option>
+                </select>
               </div>
 
               <div class="col-md-6">
@@ -343,6 +347,20 @@
           const Uints = new Uint8Array(reader.result);
           db = new SQL.Database(Uints);
           alert("数据库加载成功！");
+          results = db.exec(`
+            SELECT peerUin, MAX(peerName) AS name
+            FROM info
+            WHERE chatType = '2'
+            GROUP BY peerUin;
+          `);
+          const select = document.getElementById("peerUin");
+          select.innerHTML = '<option value="" disabled selected>Open this select menu</option>';
+          results[0].values.forEach((group) => {
+            const option = document.createElement("option");
+            option.value = group[0];
+            option.text = group[1];
+            select.add(option);
+          });
         };
         reader.readAsArrayBuffer(file);
       });
@@ -351,8 +369,55 @@
       document.querySelectorAll('input[name="chatType"]').forEach((radio) => {
         radio.addEventListener("change", function () {
           const label = document.getElementById("peerUinLabel");
-          label.textContent = this.value === "1" ? "接收人QQ号" : "群号";
+          label.textContent = this.value === "1" ? "接收人" : "群ID";
+          const select = document.getElementById("peerUin");
+          select.innerHTML = '<option value="" disabled selected>Open this select menu</option>';
+          if (this.value === "1") {
+            results = db.exec(`
+              SELECT peerUin, MAX(sendNickName) AS name
+              FROM info
+              WHERE chatType = '1' AND peerUin = senderUin
+              GROUP BY senderUin;
+            `);
+          } else if (this.value === "2") {
+            results = db.exec(`
+              SELECT peerUin, MAX(peerName) AS name
+              FROM info
+              WHERE chatType = '2'
+              GROUP BY peerUin;
+            `);
+          }
+          results[0].values.forEach((group) => {
+            const option = document.createElement("option");
+            option.value = group[0];
+            option.text = group[1];
+            select.add(option);
+          });
         });
+      });
+
+      // Update senderUin options
+      document.getElementById("peerUin").addEventListener("change", function () {
+        const select = document.getElementById("senderUin");
+        if (this.value) {
+          select.innerHTML = '<option value="" disabled selected>Open this select menu</option>';
+          results = db.exec(`
+            SELECT 
+              senderUin, 
+              MAX(sendNickName) as nickname, 
+              MAX(sendMemberName) as membername
+            FROM info
+            WHERE peerUin = '${this.value}'
+            GROUP BY senderUin;
+          `);
+          results[0].values.forEach((group) => {
+            const option = document.createElement("option");
+            option.value = group[0];
+            option.text = group[2] || group[1];
+            if (group[0] === "0") option.text = "系统消息";
+            select.add(option);
+          });
+        }
       });
 
       // date picker format
@@ -361,8 +426,8 @@
         dayjs.extend(window.dayjs_plugin_customParseFormat);
         const TimeRangeCustomFormats = {
           locale: "en-US",
-          // startDate: new Date(2022, 8, 3),
-          // endDate: new Date(2022, 8, 17),
+          startDate: new Date(),
+          endDate: new Date(),
           inputDateFormat: (date) => dayjs(date).locale("en").format("YYYY/MM/DD"),
           inputDateParse: (date) => dayjs(date, "YYYY/MM/DD", "en").toDate(),
         };
@@ -405,9 +470,13 @@
             FROM info 
             JOIN content ON info.id = content.id
             WHERE info.chatType = ?
-            AND info.peerUin = ?
         `;
-        let params = [chatType, peerUin];
+        let params = [chatType];
+
+        if (peerUin) {
+          query += " AND info.peerUin = ?";
+          params.push(peerUin);
+        }
 
         if (senderUin) {
           query += " AND info.senderUin = ?";
@@ -445,8 +514,7 @@
         }
 
         if (results[0].values[0][0] >= 5000) {
-          alert("查询结果超过5000条，请调整查询条件！");
-          return;
+          alert("查询结果超过 5000 条，只显示前 5000 条，请调整查询条件！");
         }
 
         query =
@@ -459,12 +527,14 @@
                 GROUP_CONCAT(content.elementType) as elementTypes,
                 GROUP_CONCAT(hex(content.content)) as contents,
                 GROUP_CONCAT(content.elementId) as elementIds,
-                info.msgRandom
+                info.msgRandom,
+                info.senderUin
         ` +
           query +
           ` 
             GROUP BY info.id
             ${sortType === "1" ? "ORDER BY info.msgTime DESC" : "ORDER BY info.msgTime ASC"}
+            LIMIT 5000
         `;
 
         try {
@@ -487,8 +557,27 @@
 
       // Remove bracket content before name
       function removeBracketContent(str) {
-        const regex = /^(([\[\]「」()（）{}『』【】])(.+?)([\[\]「」()（）{}『』【】]))+/;
+        const regex = /^(([\(（「『\[【{])(.+?)([\)）」』\]】}]))+/;
         return str.replace(regex, "");
+      }
+
+      // Generate random color from name
+      function getRandomColor(name) {
+        // Hash the name to get a consistent number for the same name
+        let hash = 0;
+        for (let i = 0; i < name.length; i++) {
+          hash = name.charCodeAt(i) + ((hash << 5) - hash);
+        }
+
+        // Convert the hash to a hex color code
+        let color = "#";
+        for (let i = 0; i < 3; i++) {
+          let value = (hash >> (i * 8)) & 0xff;
+          // Lighten the color by increasing the value towards 255 (FF)
+          let lightValue = Math.max(value, 150); // Ensure a minimum brightness
+          color += ("00" + lightValue.toString(16)).substr(-2);
+        }
+        return color;
       }
 
       // Display results in table
@@ -504,6 +593,7 @@
           const avatar = document.createElement("div");
           avatar.className = "chat-avatar";
           avatar.textContent = removeBracketContent(row[3] || row[2])[0]; // First character of the name
+          avatar.style.backgroundColor = getRandomColor(row[3] || row[2]);
 
           // Chat content container
           const chatContent = document.createElement("div");
@@ -515,7 +605,7 @@
 
           const username = document.createElement("span");
           username.className = "chat-username";
-          username.textContent = row[3] || row[2];
+          username.textContent = `${row[3] || row[2]} (${row[8]})`;
 
           const time = document.createElement("span");
           time.className = "chat-time";
@@ -611,7 +701,6 @@
                 msgDiv.appendChild(header);
 
                 msg.elements.forEach((el) => {
-                  console.log(el);
                   if (el.elementType === 1) {
                     const div = document.createElement("span");
                     div.className = "mb-2";
@@ -652,6 +741,12 @@
                   const textDiv = document.createElement("p");
                   textDiv.className = "mb-2 file_size";
                   textDiv.textContent = name + "撤回了一条消息";
+                  contentContainer.appendChild(textDiv);
+                } else if (meta.subElementType == 12) {
+                  // 邀请入群
+                  const textDiv = document.createElement("p");
+                  textDiv.className = "mb-2 file_size";
+                  textDiv.textContent = "邀请加入了群聊";
                   contentContainer.appendChild(textDiv);
                 }
               } else if (element.type === 10) {
